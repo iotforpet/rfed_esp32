@@ -26,6 +26,8 @@ static struct mesh_mqtt {
     uint8_t addr[MWIFI_ADDR_LEN];
     char publish_topic[32];
     char topo_topic[32];
+    int qos_pub;
+    int qos_sub;
 } g_mesh_mqtt;
 
 static const char *TAG = "mesh_mqtt";
@@ -288,7 +290,7 @@ mdf_err_t mesh_mqtt_update_topo()
     MDF_FREE(route_table);
     char *str = cJSON_PrintUnformatted(obj);
     MDF_ERROR_GOTO(str == NULL, _no_mem, "Print JSON failed");
-    esp_mqtt_client_publish(g_mesh_mqtt.client, g_mesh_mqtt.topo_topic, str, strlen(str), 0, 0);
+    esp_mqtt_client_publish(g_mesh_mqtt.client, g_mesh_mqtt.topo_topic, str, strlen(str), g_mesh_mqtt.qos_pub, 0);
     MDF_FREE(str);
     ret = MDF_OK;
 _no_mem:
@@ -359,7 +361,7 @@ mdf_err_t mesh_mqtt_write(uint8_t *addr, const char *data, size_t size, mesh_mqt
     char *payload = cJSON_PrintUnformatted(obj);
     MDF_ERROR_GOTO(payload == NULL, _no_mem, "Print JSON failed");
 
-    esp_mqtt_client_publish(g_mesh_mqtt.client, g_mesh_mqtt.publish_topic, payload, strlen(payload), 0, 0);
+    esp_mqtt_client_publish(g_mesh_mqtt.client, g_mesh_mqtt.publish_topic, payload, strlen(payload), g_mesh_mqtt.qos_pub, 0);
     MDF_FREE(payload);
 
     ret = MDF_OK;
@@ -394,6 +396,8 @@ mdf_err_t mesh_mqtt_start(char *url)
     MDF_ERROR_ASSERT(esp_read_mac(g_mesh_mqtt.addr, ESP_MAC_WIFI_STA));
     snprintf(g_mesh_mqtt.publish_topic, sizeof(g_mesh_mqtt.publish_topic), publish_topic_template, MAC2STR(g_mesh_mqtt.addr));
     snprintf(g_mesh_mqtt.topo_topic, sizeof(g_mesh_mqtt.topo_topic), topo_topic_template, MAC2STR(g_mesh_mqtt.addr));
+    g_mesh_mqtt.qos_pub = CONFIG_MESH_MQTT_PUB_QOS;
+    g_mesh_mqtt.qos_sub = CONFIG_MESH_MQTT_SUB_QOS;
     g_mesh_mqtt.queue = xQueueCreate(3, sizeof(mesh_mqtt_data_t *));
     g_mesh_mqtt.client = esp_mqtt_client_init(&mqtt_cfg);
     MDF_ERROR_ASSERT(esp_mqtt_client_start(g_mesh_mqtt.client));

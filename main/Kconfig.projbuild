@@ -1,4 +1,4 @@
-menu "Example Configuration"
+menu "RFED Project Configuration"
 
 config ROUTER_SSID
     string "Router SSID"
@@ -30,5 +30,19 @@ config MQTT_URL
     default "mqtt://iot.eclipse.org"
     help
         URL of the broker to connect to
+
+config MESH_MQTT_PUB_QOS
+    int "MESH_MQTT_PUB_QOS"
+    range 0 2
+    default 0
+    help
+        MQTT_PUB qos
+
+config MESH_MQTT_SUB_QOS
+    int "MESH_MQTT_SUB_QOS"
+    range 0 2
+    default 0
+    help
+        MQTT_SUB qos
 
 endmenu
