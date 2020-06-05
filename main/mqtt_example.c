@@ -117,8 +117,8 @@ static void beacon_stuctures_filtering(int k, Beacon *beacon, int RSSI,	uint64_t
 	}
 
 	if (unique){
-		//if ((RSSI>-65) && (strcmp(buffer, "476c6f62616c2d546167")==0 )){
-		if ((strcmp(buffer, "11111111111111111111")==0)){
+		if ((RSSI>-65) && (strcmp(buffer, "476c6f62616c2d546167")==0 )){
+		//if ((strcmp(buffer, "11111111111111111111")==0)){
 		//if (1){
 			beacon[k].UUID = dev_addr;
 			beacon[k].RSSI = RSSI;
@@ -157,8 +157,8 @@ char *create_monitor(uint64_t mac_addr, bool detected)
 	sprintf( buffer_mac_addr, "%llx", mac_addr );
     sprintf( buffer_detection, "%d", detected );
 
-    cJSON_AddStringToObject(monitor ,"MAC Addr", buffer_mac_addr);
-    cJSON_AddStringToObject(monitor,"room",		"waiting room");
+    cJSON_AddStringToObject(monitor ,"MAC", buffer_mac_addr);
+    cJSON_AddStringToObject(monitor,"room",		"exam room");
     cJSON_AddStringToObject(monitor ,"detected", buffer_detection);
 
     printf("JSON PRINT---------------------%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%-------------------------------------- \n");
@@ -169,7 +169,7 @@ char *create_monitor(uint64_t mac_addr, bool detected)
     }
     else{
     	//printf("%s \n", string);
-        sprintf(tx_item, "%s.", string);
+        sprintf(tx_item, "%s", string);
     	//Send an item
     	UBaseType_t res =  xRingbufferSend(buf_handle, tx_item, sizeof(tx_item), pdMS_TO_TICKS(1000));
     	if (res != pdTRUE) {
@@ -212,7 +212,7 @@ static void detect_arriving_beacons (){
 				}
 			}
 			maybe_just_arrived=false;
-			if (beacon_arr[n].arrived){ create_monitor(beacon_arr[n].UUID, true);}
+			if (beacon_arr[n].arrived && (beacon_arr[n].UUID != 10)){ create_monitor(beacon_arr[n].UUID, true);}
 		}
 	}
 }
@@ -243,7 +243,7 @@ static void detect_left_beacons (){
 				}
 			}
 			maybe_left=false;
-			if (beacon_arr_30[n].left){ create_monitor(beacon_arr_30[n].UUID, false);}
+			if (beacon_arr_30[n].left && (beacon_arr_30[n].UUID != 10) ){ create_monitor(beacon_arr_30[n].UUID, false);}
 		}
 	}
 }
@@ -303,10 +303,6 @@ static void past_info(Beacon *beacon){
 int counter = 0;
 static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t* param)
 {
-
-    //vTaskSuspend(node_write_task_handle);
-    //vTaskSuspend(node_read_task_handle);
-
 	//printf("esp_gap_cb is called");
 	counter++;
 	esp_err_t err;
@@ -347,11 +343,11 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t* par
                     esp_err_t ret = esp_eddystone_decode(scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len, &eddystone_res);
 
                     time2 = xx_time_get_time();
-                    if ((time2-time1)>10000){
+                    if ((time2-time1)>30000){
                     	j=0;
-                    	printf("'TIME DIFFERENCE':" "%" PRIu64 "\n", time2-time1);
+                    	printf("'TIME DIFFFRENCE':" "%" PRIu64 "\n", time2-time1);
                     	time1 = xx_time_get_time();
-                    	if (time2<30000){
+                    	if (time2<90000){
                     		past_info(beacon_arr);
                     	}
                     	else{
@@ -363,13 +359,14 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t* par
             			}
                     }
 
+
                     if (ret) {
                     	time_point_nbf = xx_time_get_time();
-                    	if ((time_point_nbf-time_point_bf)>15000 && (time_point_nbf-time_point_bf)<20000){
+                    	if ((time_point_nbf-time_point_bf)>35000 && (time_point_nbf-time_point_bf)<67500){
+
                     		ESP_LOGI(DEMO_TAG, "--------NO BEACON Found----------");
-                    		//beacon_stuctures_filtering(0, beacon_arr, 0, 10, "476c6f62616c2d546167",counter); // assign our namespace id
-                            beacon_stuctures_filtering(0, beacon_arr, 0, 10, "11111111111111111111", counter); // assign our namespace id
-                            // modified &beacon_arr
+                    		beacon_stuctures_filtering(0, &beacon_arr, 0, 10, "476c6f62616c2d546167",counter); // assign our namespace id
+
                     	}
 
                         // error:The received data is not an eddystone frame packet or a correct eddystone frame packet.
@@ -381,6 +378,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t* par
 						// Here, we get the eddystone infomation in eddystone_res, we can use the data in res to do other things.
 						// For example, just print them:
 						ESP_LOGI(DEMO_TAG, "--------Eddystone Found----------");
+						
 					//	any_beacon = true;
 						//esp_log_buffer_hex("EDDYSTONE_DEMO: Device address:", scan_result->scan_rst.bda, ESP_BD_ADDR_LEN);
 						//ESP_LOGI(DEMO_TAG, "RSSI of packet:%d dbm", scan_result->scan_rst.rssi);
@@ -405,13 +403,12 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t* par
 										| ((uint64_t) (&eddystone_res)->inform.uid.namespace_id[8]	<< 8)
 										| ((uint64_t) (&eddystone_res)->inform.uid.namespace_id[9]);
 						sprintf(buffer, "%llx%llx", namespace_id_1, namespace_id_2);
-                        if (strcmp(buffer, "11111111111111111111")==0)
+						if (strcmp(buffer, "476c6f62616c2d546167")==0)
                         {
 						    time_point_bf = xx_time_get_time();
                         }
 						//esp_eddystone_show_inform(&eddystone_res);
-						beacon_stuctures_filtering(j, beacon_arr, RSSI, dev_addr, buffer,counter);
-                        //modified &beacon_arr &buffer
+						beacon_stuctures_filtering(j, &beacon_arr, RSSI, dev_addr, &buffer,counter);
 						j++;
 					}
                     break;
@@ -434,10 +431,8 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t* par
         default:
             break;
     }
-
-    //vTaskResume(node_write_task_handle);
-    //vTaskResume(node_read_task_handle);
 }
+
 
 
 void esp_eddystone_init(void)
@@ -565,7 +560,7 @@ static void node_read_task(void *arg)
         printf("node_read_task on core %d", xPortGetCoreID());
 
         if (!mwifi_is_connected()) {
-            vTaskDelay(500 / portTICK_RATE_MS);
+            vTaskDelay(1000 / portTICK_RATE_MS);
             continue;
         }
 
@@ -574,6 +569,7 @@ static void node_read_task(void *arg)
         ret = mwifi_read(src_addr, &data_type, data, &size, portMAX_DELAY);
         MDF_ERROR_CONTINUE(ret != MDF_OK, "<%s> mwifi_read", mdf_err_to_name(ret));
         MDF_LOGI("Node receive: " MACSTR ", size: %d, data: %s", MAC2STR(src_addr), size, data);
+		vTaskDelay(5000 / portTICK_RATE_MS);
     }
 
     MDF_LOGW("Node read task is exit");
@@ -599,7 +595,7 @@ static void node_write_task(RingbufHandle_t buf_handle)
 
 
         if (!mwifi_is_connected() || !mwifi_get_root_status()) {
-            vTaskDelay(500 / portTICK_RATE_MS);
+            vTaskDelay(1000 / portTICK_RATE_MS);
             continue;
         }
 
@@ -634,7 +630,8 @@ static void node_write_task(RingbufHandle_t buf_handle)
             //Failed to receive item
             printf("Failed to receive item\n");
         }
-        vTaskDelay(3000 / portTICK_RATE_MS);
+        vTaskDelay(10000 / portTICK_RATE_MS);
+		
 
     }
 
